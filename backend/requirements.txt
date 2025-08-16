@@ -1,0 +1,68 @@
+# FastAPI and Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Pydantic for data validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# OpenAI Integration (only for information extraction)
+openai>=1.0.0
+
+# Whisper Local Processing
+openai-whisper==20231117
+torch>=2.5.0
+torchaudio>=2.5.0
+
+# File handling and validation
+python-multipart>=0.0.6
+python-magic>=0.4.27
+
+# Utilities
+python-dotenv>=1.0.0
+httpx>=0.25.0
+
+# Logging and monitoring
+structlog>=23.0.0
+
+# Additional system libraries
+psutil>=5.9.0
+
+# Vector Database (Requisito 2 - Almacenamiento Vectorial)
+chromadb>=0.4.15
+sentence-transformers>=2.2.2
+numpy>=1.24.0
+tf-keras
+
+# Testing (dev dependencies)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# Development tools
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.7.0
+
+# Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Background tasks (opcional)
+# celery>=5.3.0
+# redis>=5.0.0
+
+# PLUS Features - OCR y Document Processing (Sprint 2 - Feature 4)
+PyPDF2>=3.0.1
+pytesseract>=0.3.10
+Pillow>=10.0.0
+
+# PLUS Features - Speaker Diarization (Sprint 2 - Feature 5)
+librosa>=0.10.1
+scipy>=1.11.0
+scikit-learn>=1.3.0
