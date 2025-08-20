@@ -116,7 +116,7 @@ export const TranscriptionList: React.FC = () => {
   const filteredTranscriptions = transcriptions.filter(t => 
     !searchTerm || 
     t.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.structured_data?.nombre?.toLowerCase().includes(searchTerm.toLowerCase())
+    t.transcription?.structured_data?.nombre?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (selectedTranscription) {
@@ -140,7 +140,7 @@ export const TranscriptionList: React.FC = () => {
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="btn-secondary flex items-center space-x-2"
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2"
         >
           <FunnelIcon className="w-4 h-4" />
           <span>Filtros</span>
@@ -148,7 +148,7 @@ export const TranscriptionList: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="card">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <form onSubmit={handleSearch} className="flex space-x-4">
           <div className="flex-1">
             <div className="relative">
@@ -158,11 +158,11 @@ export const TranscriptionList: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por nombre de archivo o paciente..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
-          <button type="submit" className="btn-primary">
+                      <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
             Buscar
           </button>
         </form>
@@ -177,7 +177,7 @@ export const TranscriptionList: React.FC = () => {
                 <select
                   value={filters.status || ''}
                   onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
-                  className="input-field"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Todos los estados</option>
                   <option value="completed">Completado</option>
@@ -195,7 +195,7 @@ export const TranscriptionList: React.FC = () => {
                   type="date"
                   value={filters.date_from || ''}
                   onChange={(e) => handleFilterChange('date_from', e.target.value || undefined)}
-                  className="input-field"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               
@@ -207,7 +207,7 @@ export const TranscriptionList: React.FC = () => {
                   type="date"
                   value={filters.date_to || ''}
                   onChange={(e) => handleFilterChange('date_to', e.target.value || undefined)}
-                  className="input-field"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -218,7 +218,7 @@ export const TranscriptionList: React.FC = () => {
                   setFilters({ skip: 0, limit: 20 });
                   setSearchTerm('');
                 }}
-                className="btn-secondary mr-2"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 mr-2"
               >
                 Limpiar Filtros
               </button>
@@ -241,7 +241,7 @@ export const TranscriptionList: React.FC = () => {
           onDismiss={() => refetch()}
         />
       ) : filteredTranscriptions.length === 0 ? (
-        <div className="card text-center py-12">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center py-12">
           <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No hay conversaciones
@@ -256,7 +256,7 @@ export const TranscriptionList: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {filteredTranscriptions.map((transcription) => (
-            <div key={transcription.transcription_id} className="card hover:shadow-md transition-shadow">
+            <div key={transcription.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-4 flex-1">
                   {/* Status Icon */}
@@ -279,55 +279,55 @@ export const TranscriptionList: React.FC = () => {
                     </div>
 
                     {/* Patient Info */}
-                    {transcription.structured_data && (
+                    {transcription.transcription?.structured_data && (
                       <div className="flex flex-wrap items-center gap-4 mb-3 text-sm">
-                        {transcription.structured_data.nombre && (
+                        {transcription.transcription.structured_data.nombre && (
                           <div className="flex items-center space-x-1">
                             <UserIcon className="w-4 h-4 text-gray-500" />
                             <span className="font-medium text-gray-700">
-                              {transcription.structured_data.nombre}
+                              {transcription.transcription.structured_data.nombre}
                             </span>
                           </div>
                         )}
-                        {transcription.structured_data.diagnóstico && (
+                        {transcription.transcription.structured_data.diagnostico && (
                           <div className="text-gray-600">
-                            <span className="font-medium">Diagnóstico:</span> {transcription.structured_data.diagnóstico}
+                            <span className="font-medium">Diagnóstico:</span> {transcription.transcription.structured_data.diagnostico}
                           </div>
                         )}
-                        {transcription.structured_data.edad && (
+                        {transcription.transcription.structured_data.edad && (
                           <div className="text-gray-600">
-                            <span className="font-medium">Edad:</span> {transcription.structured_data.edad}
+                            <span className="font-medium">Edad:</span> {transcription.transcription.structured_data.edad}
                           </div>
                         )}
                       </div>
                     )}
 
-                    {/* Speaker Stats */}
-                    {transcription.diarization_result && (
-                      <div className="grid grid-cols-4 gap-4 mb-3 text-xs bg-gray-50 p-3 rounded-lg">
+                    {/* Processing Info */}
+                    {transcription.transcription && (
+                      <div className="grid grid-cols-3 gap-4 mb-3 text-xs bg-gray-50 p-3 rounded-lg">
                         <div className="text-center">
                           <div className="font-medium text-blue-600">
-                            {formatDuration(transcription.diarization_result.speaker_stats.promotor_time)}
+                            {transcription.transcription.confidence_score ? 
+                              `${Math.round(transcription.transcription.confidence_score * 100)}%` : 
+                              'N/A'
+                            }
                           </div>
-                          <div className="text-gray-500">Promotor</div>
+                          <div className="text-gray-500">Confianza</div>
                         </div>
                         <div className="text-center">
                           <div className="font-medium text-green-600">
-                            {formatDuration(transcription.diarization_result.speaker_stats.paciente_time)}
+                            {transcription.transcription.audio_duration_seconds ? 
+                              formatDuration(transcription.transcription.audio_duration_seconds) : 
+                              'N/A'
+                            }
                           </div>
-                          <div className="text-gray-500">Paciente</div>
+                          <div className="text-gray-500">Duración</div>
                         </div>
                         <div className="text-center">
                           <div className="font-medium text-gray-600">
-                            {transcription.diarization_result.speaker_stats.speaker_changes}
+                            {transcription.transcription.language_detected || 'N/A'}
                           </div>
-                          <div className="text-gray-500">Cambios</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="font-medium text-gray-600">
-                            {formatDuration(transcription.diarization_result.speaker_stats.total_duration)}
-                          </div>
-                          <div className="text-gray-500">Total</div>
+                          <div className="text-gray-500">Idioma</div>
                         </div>
                       </div>
                     )}
@@ -339,9 +339,9 @@ export const TranscriptionList: React.FC = () => {
                         <span>{formatDate(transcription.created_at)}</span>
                       </div>
                       
-                      {transcription.processing_time_seconds && (
+                      {transcription.transcription?.processing_time_seconds && (
                         <span>
-                          Procesado en {transcription.processing_time_seconds}s
+                          Procesado en {transcription.transcription.processing_time_seconds}s
                         </span>
                       )}
                     </div>
@@ -364,7 +364,7 @@ export const TranscriptionList: React.FC = () => {
                   {transcription.status === 'completed' && (
                     <button
                       onClick={() => setSelectedTranscription(transcription)}
-                      className="p-2 text-gray-400 hover:text-medical-600 transition-colors"
+                      className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
                       title="Ver detalles"
                     >
                       <EyeIcon className="w-5 h-5" />
@@ -392,7 +392,7 @@ export const TranscriptionList: React.FC = () => {
               ...prev, 
               skip: (prev.skip || 0) + (prev.limit || 20) 
             }))}
-            className="btn-secondary"
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200"
           >
             Cargar más conversaciones
           </button>

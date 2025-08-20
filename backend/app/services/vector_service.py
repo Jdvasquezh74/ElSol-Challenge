@@ -273,14 +273,15 @@ class VectorStoreService:
         loop = asyncio.get_event_loop()
         
         # Ejecutar en thread pool para no bloquear
-        await loop.run_in_executor(
-            None,
-            self.collection.add,
-            [embedding],  # embeddings
-            [metadata],   # metadatas
-            [document],   # documents
-            [vector_id]   # ids
-        )
+        def add_to_collection():
+            self.collection.add(
+                embeddings=[embedding],
+                metadatas=[metadata],
+                documents=[document],
+                ids=[vector_id]
+            )
+
+        await loop.run_in_executor(None, add_to_collection)
     
     async def get_vector_store_status(self) -> VectorStoreStatus:
         """Obtener estado actual del vector store."""
@@ -315,16 +316,13 @@ class VectorStoreService:
             loop = asyncio.get_event_loop()
             
             # Obtener documentos recientes
-            results = await loop.run_in_executor(
-                None,
-                self.collection.get,
-                None,  # ids (None = all)
-                None,  # where
-                limit, # limit
-                None,  # offset
-                None,  # where_document
-                True   # include metadata
-            )
+            def get_conversations():
+                return self.collection.get(
+                    limit=limit,
+                    include=["documents", "metadatas"]
+                )
+
+            results = await loop.run_in_executor(None, get_conversations)
             
             conversations = []
             for i, (doc_id, metadata, document) in enumerate(
@@ -355,16 +353,14 @@ class VectorStoreService:
             loop = asyncio.get_event_loop()
             
             # Buscar por metadata
-            results = await loop.run_in_executor(
-                None,
-                self.collection.get,
-                None,                                          # ids
-                {"conversation_id": conversation_id},          # where
-                1,                                             # limit
-                None,                                          # offset
-                None,                                          # where_document
-                True                                           # include metadata
-            )
+            def get_conversation():
+                return self.collection.get(
+                    where={"conversation_id": conversation_id},
+                    limit=1,
+                    include=["documents", "metadatas"]
+                )
+
+            results = await loop.run_in_executor(None, get_conversation)
             
             if not results['ids']:
                 return None
@@ -418,16 +414,17 @@ class VectorStoreService:
             
             # Ejecutar búsqueda en Chroma
             loop = asyncio.get_event_loop()
-            results = await loop.run_in_executor(
-                None,
-                self.collection.query,
-                [query_embedding],           # query_embeddings
-                max_results,                 # n_results
-                metadata_filters,            # where
-                None,                        # where_document
-                ["documents", "metadatas", "distances"]  # include
-            )
             
+            def query_collection():
+                return self.collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=max_results,
+                    where=metadata_filters,
+                    include=["documents", "metadatas", "distances"]
+                )
+            
+            results = await loop.run_in_executor(None, query_collection)
+
             # Procesar y filtrar resultados
             search_results = []
             for i, (doc, metadata, distance) in enumerate(zip(
@@ -474,49 +471,80 @@ class VectorStoreService:
     ) -> List[Dict[str, Any]]:
         """
         Buscar todas las conversaciones de un paciente específico.
+        Implementa búsqueda fuzzy para manejar variaciones de nombres.
         
         Args:
-            patient_name: Nombre del paciente
+            patient_name: Nombre del paciente (puede ser parcial)
             max_results: Número máximo de resultados
             
         Returns:
-            Lista de conversaciones del paciente
+            Lista de conversaciones del paciente ordenadas por relevancia
         """
         try:
             logger.info("Searching by patient", patient_name=patient_name)
             
             loop = asyncio.get_event_loop()
-            results = await loop.run_in_executor(
-                None,
-                self.collection.get,
-                None,                                          # ids
-                {"patient_name": {"$eq": patient_name}},       # where
-                max_results,                                   # limit
-                None,                                          # offset
-                None,                                          # where_document
-                True                                           # include metadata
-            )
             
-            search_results = []
-            for doc, metadata in zip(results['documents'], results['metadatas']):
-                result = {
-                    "content": doc,
-                    "metadata": metadata,
-                    "similarity_score": 1.0,  # Exact match
-                    "conversation_id": metadata.get("conversation_id", "unknown"),
-                    "patient_name": metadata.get("patient_name"),
-                    "diagnosis": metadata.get("diagnosis"),
-                    "symptoms": metadata.get("symptoms"),
-                    "date": metadata.get("conversation_date"),
-                    "excerpt": self._create_excerpt(doc, patient_name, max_length=200)
-                }
-                search_results.append(result)
+            # ChromaDB no soporta $contains, así que usaremos búsqueda semántica + filtrado manual
+            # Primero obtenemos TODOS los documentos y luego filtramos por similitud de nombres
+            
+            try:
+                # Obtener todos los documentos (sin filtro de where)
+                results = await loop.run_in_executor(
+                    None,
+                    self.collection.get,
+                    None,                           # ids
+                    None,                           # where (sin filtro)
+                    None,                           # limit (todos los documentos)
+                    None,                          # offset
+                    None,                          # where_document
+                    ["documents", "metadatas"]      # include
+                )
+                
+                all_results = []
+                processed_conversations = set()
+                
+                # Filtrar manualmente por similitud de nombres
+                for doc, metadata in zip(results['documents'], results['metadatas']):
+                    conv_id = metadata.get("conversation_id", "unknown")
+                    stored_name = metadata.get("patient_name", "")
+                    
+                    # Evitar duplicados y nombres vacíos
+                    if conv_id not in processed_conversations and stored_name:
+                        processed_conversations.add(conv_id)
+                        
+                        # Calcular similitud de nombres
+                        similarity = self._calculate_name_similarity(patient_name, stored_name)
+                        
+                        # Solo incluir si hay similitud razonable
+                        if similarity > 0.3:
+                            result = {
+                                "content": doc,
+                                "metadata": metadata,
+                                "similarity_score": similarity,
+                                "conversation_id": conv_id,
+                                "patient_name": stored_name,
+                                "diagnosis": metadata.get("diagnosis"),
+                                "symptoms": metadata.get("symptoms"),
+                                "date": metadata.get("conversation_date"),
+                                "excerpt": self._create_excerpt(doc, patient_name, max_length=200)
+                            }
+                            all_results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Patient search failed during data retrieval", error=str(e))
+                return []
+            
+            # Ordenar por similitud y limitar resultados
+            all_results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            final_results = all_results[:max_results]
             
             logger.info("Patient search completed",
                        patient_name=patient_name,
-                       results_found=len(search_results))
+                       results_found=len(final_results),
+                       unique_patients=len(set(r['patient_name'] for r in final_results if r['patient_name'])))
             
-            return search_results
+            return final_results
             
         except Exception as e:
             logger.error("Patient search failed", 
@@ -580,6 +608,118 @@ class VectorStoreService:
                         condition=condition, 
                         error=str(e))
             return []
+    
+    def _calculate_name_similarity(self, search_name: str, stored_name: str) -> float:
+        """
+        Calcular similitud entre nombres para ranking.
+        Optimizado para nombres latinos con múltiples partes.
+        
+        Args:
+            search_name: Nombre buscado por el usuario
+            stored_name: Nombre almacenado en la base de datos
+            
+        Returns:
+            Puntuación de similitud entre 0.0 y 1.0
+        """
+        if not search_name or not stored_name:
+            return 0.0
+        
+        # Normalizar nombres (minúsculas, sin acentos, sin espacios extra)
+        search_name = self._normalize_name(search_name)
+        stored_name = self._normalize_name(stored_name)
+        
+        # Coincidencia exacta
+        if search_name == stored_name:
+            return 1.0
+        
+        # Dividir en palabras
+        search_words = set(search_name.split())
+        stored_words = set(stored_name.split())
+        
+        if not search_words or not stored_words:
+            return 0.0
+        
+        # Calcular intersección
+        common_words = search_words.intersection(stored_words)
+        
+        if not common_words:
+            # Si no hay palabras comunes exactas, verificar contención parcial
+            partial_matches = 0
+            for search_word in search_words:
+                for stored_word in stored_words:
+                    # Verificar si una palabra contiene a la otra (mínimo 3 caracteres)
+                    if len(search_word) >= 3 and len(stored_word) >= 3:
+                        if search_word in stored_word or stored_word in search_word:
+                            partial_matches += 1
+                            break
+            
+            if partial_matches == 0:
+                return 0.0
+            
+            # Puntuación baja pero no cero para coincidencias parciales
+            return min(0.4 + (partial_matches * 0.1), 0.7)
+        
+        # Calcular similitud base
+        total_search_words = len(search_words)
+        coverage = len(common_words) / total_search_words
+        
+        # Bonificaciones
+        bonus = 0.0
+        
+        # Bonus principal: si todas las palabras de búsqueda están en el nombre almacenado
+        if search_words.issubset(stored_words):
+            bonus += 0.4
+        
+        # Bonus por número de palabras comunes
+        bonus += len(common_words) * 0.1
+        
+        # Bonus por orden de palabras (si la primera palabra de búsqueda está presente)
+        if search_words and stored_words:
+            first_search_word = list(search_words)[0]
+            if first_search_word in stored_words:
+                bonus += 0.1
+        
+        # Penalización moderada por palabras extra en nombre almacenado
+        extra_words = len(stored_words) - len(common_words)
+        if extra_words > 1:
+            bonus -= 0.05 * (extra_words - 1)
+        
+        final_similarity = coverage + bonus
+        return min(max(final_similarity, 0.0), 1.0)
+    
+    def _normalize_name(self, name: str) -> str:
+        """
+        Normalizar nombre para comparación.
+        
+        Args:
+            name: Nombre a normalizar
+            
+        Returns:
+            Nombre normalizado
+        """
+        if not name:
+            return ""
+        
+        # Convertir a minúsculas
+        normalized = name.lower().strip()
+        
+        # Remover acentos comunes
+        accents_map = {
+            'á': 'a', 'à': 'a', 'ä': 'a', 'â': 'a',
+            'é': 'e', 'è': 'e', 'ë': 'e', 'ê': 'e',
+            'í': 'i', 'ì': 'i', 'ï': 'i', 'î': 'i',
+            'ó': 'o', 'ò': 'o', 'ö': 'o', 'ô': 'o',
+            'ú': 'u', 'ù': 'u', 'ü': 'u', 'û': 'u',
+            'ñ': 'n', 'ç': 'c'
+        }
+        
+        for accented, normal in accents_map.items():
+            normalized = normalized.replace(accented, normal)
+        
+        # Limpiar espacios múltiples
+        normalized = ' '.join(normalized.split())
+        
+        return normalized
     
     def _create_excerpt(self, text: str, query: str, max_length: int = 200) -> str:
         """

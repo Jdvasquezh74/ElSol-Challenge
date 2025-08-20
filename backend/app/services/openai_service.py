@@ -181,6 +181,7 @@ class OpenAIService:
     async def _call_openai_api(self, messages: list) -> str:
         """
         Make API call to OpenAI with error handling and retries.
+        Configured for JSON extraction tasks.
         
         Args:
             messages: List of message dictionaries
@@ -211,6 +212,41 @@ class OpenAIService:
                 model=self.model
             )
             raise OpenAIExtractionError(f"API call failed: {str(e)}")
+    
+    async def _call_openai_chat_api(self, messages: list) -> str:
+        """
+        Make API call to OpenAI for chat responses (text format).
+        Configured for natural language responses without JSON forcing.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            Response content from OpenAI in natural language
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            
+            response: ChatCompletion = await loop.run_in_executor(
+                None,
+                lambda: self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=2000,  # Más tokens para respuestas de chat
+                    temperature=0.3,  # Ligeramente más creativo para chat
+                    # NO incluir response_format para permitir texto plano
+                )
+            )
+            
+            return response.choices[0].message.content or ""
+            
+        except Exception as e:
+            logger.error(
+                "OpenAI Chat API call failed",
+                error=str(e),
+                model=self.model
+            )
+            raise OpenAIExtractionError(f"Chat API call failed: {str(e)}")
     
     def _get_structured_extraction_prompt(self) -> str:
         """Get system prompt for structured data extraction."""

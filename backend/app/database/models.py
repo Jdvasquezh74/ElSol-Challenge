@@ -4,12 +4,14 @@ Define modelos SQLAlchemy para transcripciones de audio y datos relacionados.
 """
 
 import uuid
+import json
 from datetime import datetime
 from typing import Dict, Any, Optional
-from sqlalchemy import Column, String, DateTime, Text, Integer, JSON, Enum
+from sqlalchemy import Column, String, DateTime, Text, Integer, JSON, Enum, Float, ForeignKey
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, relationship
 import enum
 
 
@@ -227,7 +229,8 @@ class Document(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationship (optional association with conversations)
-    conversation_id = Column(String(50), ForeignKey("conversations.id"), nullable=True)
+    conversation_id = Column(String(50), ForeignKey("audio_transcriptions.id"), nullable=True)
+    conversation = relationship("AudioTranscription", back_populates="documents")
     
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""

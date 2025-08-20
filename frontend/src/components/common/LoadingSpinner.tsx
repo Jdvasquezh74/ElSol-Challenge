@@ -23,7 +23,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <div className="flex flex-col items-center space-y-2">
         <div 
           className={clsx(
-            'animate-spin rounded-full border-2 border-gray-300 border-t-medical-600',
+            'animate-spin rounded-full border-2 border-gray-300 border-t-blue-600',
             sizeClasses[size]
           )}
         />
@@ -43,7 +43,7 @@ export const LoadingSkeleton: React.FC<{ className?: string }> = ({ className })
 
 export const LoadingCard: React.FC = () => {
   return (
-    <div className="card animate-pulse">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
       <div className="flex items-center space-x-4">
         <LoadingSkeleton className="w-12 h-12 rounded-lg" />
         <div className="flex-1">

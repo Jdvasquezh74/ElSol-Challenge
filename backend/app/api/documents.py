@@ -27,7 +27,7 @@ from app.core.schemas import (
 from app.database.connection import get_db
 from app.database.models import Document
 from app.services.ocr_service import get_ocr_service, OCRService, OCRServiceError
-from app.services.vector_service import get_vector_service
+from app.services.vector_service import get_vector_service, store_conversation_data
 
 logger = structlog.get_logger(__name__)
 settings = get_settings()
@@ -191,7 +191,7 @@ async def process_document_background(
                 combined_text += f"\nContenido:\n{ocr_result.text}"
                 
                 # Almacenar en vector store
-                vector_id = await vector_service.store_conversation_data(
+                vector_response = await store_conversation_data(
                     conversation_id=document_id,
                     transcription=combined_text,
                     structured_data=metadata.dict() if metadata else {},
@@ -199,12 +199,12 @@ async def process_document_background(
                     metadata=vector_metadata
                 )
                 
-                if vector_id:
-                    document.mark_vector_stored(vector_id)
+                if vector_response and vector_response.vector_id:
+                    document.mark_vector_stored(vector_response.vector_id)
                     db.commit()
                     logger.info("Document stored in vector database",
                                document_id=document_id,
-                               vector_id=vector_id)
+                               vector_id=vector_response.vector_id)
                 
             except Exception as e:
                 logger.error("Failed to store document in vector database",

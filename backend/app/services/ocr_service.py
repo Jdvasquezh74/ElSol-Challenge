@@ -10,6 +10,7 @@ PLUS Feature 4: Subida de PDFs/Imágenes con OCR
 import os
 import io
 import time
+import json
 import mimetypes
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
@@ -393,7 +394,6 @@ Responde ÚNICAMENTE con el JSON válido, sin explicaciones adicionales.
             
             # Parsear respuesta JSON
             try:
-                import json
                 metadata_dict = json.loads(response.strip())
                 
                 # Crear objeto DocumentMetadata

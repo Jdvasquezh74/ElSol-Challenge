@@ -1,33 +1,46 @@
 // API Types for ElSol Challenge Frontend
 
 export interface TranscriptionResponse {
-  transcription_id: string;
+  id: string;
   filename: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  transcription_text?: string;
-  structured_data?: StructuredData;
-  unstructured_data?: UnstructuredData;
-  diarization_result?: DiarizationResult;
-  speaker_summary?: SpeakerSummary;
-  processing_time_seconds?: number;
-  vector_stored?: boolean;
+  transcription?: TranscriptionResult;
   created_at: string;
   processed_at?: string;
   error_message?: string;
 }
 
+export interface TranscriptionResult {
+  raw_text: string;
+  structured_data: StructuredData;
+  unstructured_data: UnstructuredData;
+  confidence_score?: number;
+  language_detected?: string;
+  audio_duration_seconds?: number;
+  processing_time_seconds?: number;
+}
+
 export interface StructuredData {
   nombre?: string;
-  edad?: string;
-  diagnóstico?: string;
+  edad?: number;
+  diagnostico?: string;
   fecha?: string;
+  medico?: string;
+  medicamentos?: string[];
+  telefono?: string;
+  email?: string;
   [key: string]: any;
 }
 
 export interface UnstructuredData {
-  síntomas?: string[];
+  sintomas?: string[];
   contexto?: string;
   observaciones?: string;
+  emociones?: string[];
+  urgencia?: string;
+  recomendaciones?: string[];
+  preguntas?: string[];
+  respuestas?: string[];
   [key: string]: any;
 }
 
@@ -177,6 +190,15 @@ export interface DocumentFilter {
   file_type?: string;
   skip?: number;
   limit?: number;
+}
+
+// List Response
+export interface TranscriptionListResponse {
+  items: TranscriptionResponse[];
+  total: number;
+  page: number;
+  size: number;
+  has_next: boolean;
 }
 
 // Health Check

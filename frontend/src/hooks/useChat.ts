@@ -109,13 +109,15 @@ export const useChat = () => {
   }, []);
 
   const getSuggestedQueries = useCallback(() => {
-    const suggestions = chatExamples || [
+    const defaultSuggestions = [
       "¿Qué síntomas reportó el paciente?",
       "¿Qué diagnóstico estableció el promotor?",
       "Listame los pacientes con diabetes",
       "¿Qué documentos médicos tengo disponibles?",
       "¿Cuánto tiempo habló cada persona en la consulta?",
     ];
+    
+    const suggestions = Array.isArray(chatExamples) ? chatExamples : defaultSuggestions;
 
     // Add dynamic suggestions based on recent messages
     const recentPatients = messages

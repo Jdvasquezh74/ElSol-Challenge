@@ -82,7 +82,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isVisible, onToggl
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-6 right-6 bg-medical-600 hover:bg-medical-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 z-50"
+        className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-200 z-50"
         title="Abrir Chat RAG"
       >
         <ChatBubbleLeftRightIcon className="w-6 h-6" />
@@ -93,9 +93,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isVisible, onToggl
   return (
     <div className="fixed bottom-6 right-6 w-96 max-w-[calc(100vw-3rem)] bg-white rounded-xl shadow-2xl border border-gray-200 z-50 flex flex-col max-h-[80vh]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-medical-50 rounded-t-xl">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-50 rounded-t-xl">
         <div className="flex items-center space-x-2">
-          <ChatBubbleLeftRightIcon className="w-5 h-5 text-medical-600" />
+          <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-600" />
           <h3 className="font-medium text-gray-900">Chat RAG Médico</h3>
         </div>
         <div className="flex items-center space-x-2">
@@ -149,7 +149,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isVisible, onToggl
             <div key={message.id} className="space-y-3">
               {/* User Query */}
               <div className="flex justify-end">
-                <div className="bg-medical-600 text-white p-3 rounded-lg max-w-[80%] relative group">
+                <div className="bg-blue-600 text-white p-3 rounded-lg max-w-[80%] relative group">
                   <p className="text-sm">{message.query}</p>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs opacity-75">
@@ -319,14 +319,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isVisible, onToggl
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="Pregunta sobre pacientes, síntomas, documentos..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               disabled={isLoading}
             />
           </div>
           <button
             type="submit"
             disabled={!query.trim() || isLoading}
-            className="flex-shrink-0 btn-primary p-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center p-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <LoadingSpinner size="sm" />
@@ -340,7 +340,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ isVisible, onToggl
           Presiona Enter para enviar • 
           <button 
             onClick={() => setShowSuggestions(!showSuggestions)}
-            className="ml-1 text-medical-600 hover:text-medical-700"
+            className="ml-1 text-blue-600 hover:text-blue-700"
           >
             {showSuggestions ? 'Ocultar' : 'Ver'} sugerencias
           </button>

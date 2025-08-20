@@ -13,7 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleChat, chatVisible }) => 
         <div className="flex justify-between items-center h-16">
           {/* Logo and Title */}
           <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg gradient-medical">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
               <HeartIcon className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleChat, chatVisible }) => 
                 onClick={onToggleChat}
                 className={`p-2 rounded-lg transition-colors duration-200 ${
                   chatVisible
-                    ? 'bg-medical-100 text-medical-700'
+                    ? 'bg-blue-100 text-blue-700'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
                 title={chatVisible ? 'Ocultar Chat' : 'Mostrar Chat RAG'}

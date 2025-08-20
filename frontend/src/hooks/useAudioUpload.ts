@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { audioApi, handleApiError } from '../services/api';
 import type { UploadProgress } from '../types/api';
@@ -11,23 +11,23 @@ export const useAudioUpload = () => {
   const uploadMutation = useMutation({
     mutationFn: audioApi.uploadAudio,
     onSuccess: (data, file) => {
-      // Update progress to completed
+      // Update progress to processing (not completed yet)
       setUploadProgress(prev => {
         const newMap = new Map(prev);
         const fileKey = `${file.name}-${file.size}`;
         newMap.set(fileKey, {
           file,
-          progress: 100,
-          status: 'completed',
+          progress: 80,
+          status: 'processing',
           result: data,
         });
         return newMap;
       });
 
-      // Invalidate transcriptions query to refetch the list
-      queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
+      // Start polling for transcription status
+      startPollingForResult(data.id, file);
       
-      toast.success(`Audio "${file.name}" procesado exitosamente`);
+      toast.success(`Audio "${file.name}" subido exitosamente. Procesando transcripción...`);
     },
     onError: (error, file) => {
       const errorMessage = handleApiError(error);
@@ -45,9 +45,95 @@ export const useAudioUpload = () => {
         return newMap;
       });
 
-      toast.error(`Error procesando "${file.name}": ${errorMessage}`);
+      toast.error(`Error subiendo "${file.name}": ${errorMessage}`);
     },
   });
+
+  // Function to poll for transcription results
+  const startPollingForResult = useCallback(async (transcriptionId: string, file: File) => {
+    const fileKey = `${file.name}-${file.size}`;
+    let attempts = 0;
+    const maxAttempts = 60; // Poll for up to 5 minutes (60 * 5 seconds)
+
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      
+      try {
+        const result = await audioApi.getTranscription(transcriptionId);
+        
+        if (result.status === 'completed') {
+          // Processing completed successfully
+          setUploadProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(fileKey, {
+              file,
+              progress: 100,
+              status: 'completed',
+              result: result,
+            });
+            return newMap;
+          });
+
+          // Invalidate transcriptions query to refetch the list
+          queryClient.invalidateQueries({ queryKey: ['transcriptions'] });
+          
+          toast.success(`Transcripción de "${file.name}" completada exitosamente`);
+          clearInterval(pollInterval);
+          
+        } else if (result.status === 'failed') {
+          // Processing failed
+          setUploadProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(fileKey, {
+              file,
+              progress: 0,
+              status: 'error',
+              error: result.error_message || 'Error en el procesamiento',
+            });
+            return newMap;
+          });
+
+          toast.error(`Error procesando "${file.name}": ${result.error_message || 'Error desconocido'}`);
+          clearInterval(pollInterval);
+          
+        } else if (attempts >= maxAttempts) {
+          // Timeout
+          setUploadProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(fileKey, {
+              file,
+              progress: 80,
+              status: 'error',
+              error: 'Tiempo de espera agotado. El procesamiento puede continuar en segundo plano.',
+            });
+            return newMap;
+          });
+
+          toast.error(`Tiempo de espera agotado para "${file.name}"`);
+          clearInterval(pollInterval);
+        }
+        // If status is still 'processing' or 'pending', continue polling
+        
+      } catch (error) {
+        console.error('Error polling transcription status:', error);
+        
+        if (attempts >= maxAttempts) {
+          setUploadProgress(prev => {
+            const newMap = new Map(prev);
+            newMap.set(fileKey, {
+              file,
+              progress: 80,
+              status: 'error',
+              error: 'Error verificando el estado del procesamiento',
+            });
+            return newMap;
+          });
+
+          clearInterval(pollInterval);
+        }
+      }
+    }, 5000); // Poll every 5 seconds
+  }, [queryClient]);
 
   const uploadFiles = useCallback(async (files: File[]) => {
     const validFiles = files.filter(file => {

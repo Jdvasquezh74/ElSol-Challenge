@@ -14,9 +14,9 @@ from fastapi.responses import JSONResponse
 #from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
-from app.core.config import get_settings, create_upload_dir, create_chroma_dir
+from app.core.config import get_settings, create_upload_dir, create_chroma_dir, create_document_dir
 from app.database.connection import create_database, check_database_connection
-from app.api import health, upload, vector, chat
+from app.api import health, upload, vector, chat, documents
 from app.core.schemas import ErrorResponse
 
 
@@ -59,6 +59,9 @@ async def lifespan(app: FastAPI):
     
     create_chroma_dir()
     logger.info("Chroma directory created", path=settings.CHROMA_PERSIST_DIRECTORY)
+    
+    create_document_dir()
+    logger.info("Document directory created", path=settings.DOCUMENT_UPLOAD_DIR)
     
     # Initialize database
     try:
@@ -183,6 +186,13 @@ def create_application() -> FastAPI:
         chat.router,
         prefix=settings.API_V1_STR,
         tags=["Chat RAG"],
+        responses={404: {"description": "Not found"}}
+    )
+    
+    app.include_router(
+        documents.router,
+        prefix=settings.API_V1_STR,
+        tags=["Document Processing"],
         responses={404: {"description": "Not found"}}
     )
     

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   TranscriptionResponse,
+  TranscriptionListResponse,
   DocumentResponse,
   DocumentSearchResult,
   ChatQuery,
@@ -66,8 +67,8 @@ export const audioApi = {
 
   // List transcriptions with filters
   getTranscriptions: async (filters: TranscriptionFilter = {}): Promise<TranscriptionResponse[]> => {
-    const response = await api.get('/api/v1/transcriptions', { params: filters });
-    return response.data;
+    const response = await api.get<TranscriptionListResponse>('/api/v1/transcriptions', { params: filters });
+    return response.data.items; // Extract items from the response
   },
 
   // Delete transcription

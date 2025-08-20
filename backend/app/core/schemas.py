@@ -5,7 +5,7 @@ Define objetos de transferencia de datos (DTOs) para endpoints de API.
 
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, validator
 from enum import Enum
 
 

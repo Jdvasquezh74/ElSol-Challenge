@@ -172,7 +172,7 @@ class ChatService:
             intent = self._detect_intent(normalized_query)
             
             # Extraer entidades
-            entities = self._extract_entities(normalized_query, intent)
+            entities = self._extract_entities(query, normalized_query, intent)
             
             # Generar términos de búsqueda optimizados
             search_terms = self._generate_search_terms(normalized_query, entities)
@@ -236,7 +236,7 @@ class ChatService:
         # Intención por defecto
         return ChatIntent.GENERAL_QUERY
     
-    def _extract_entities(self, query: str, intent: ChatIntent) -> Dict[str, List[str]]:
+    def _extract_entities(self, original_query: str, normalized_query: str, intent: ChatIntent) -> Dict[str, List[str]]:
         """Extraer entidades de la consulta según la intención."""
         entities = {
             "patients": [],
@@ -247,37 +247,64 @@ class ChatService:
         }
         
         try:
-            # Extraer nombres de pacientes (palabras capitalizadas)
+            # Extraer nombres de pacientes con patrones mejorados
             patient_patterns = [
-                r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b",
-                r"(?:paciente|de|tiene)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
+                r"\b(juan|maria|carlos|ana|luis|pedro|jose|manuel|francisco|antonio|miguel|david|alejandro|rafael|daniel|sergio|pablo|jorge|roberto|oscar|victor|javier|fernando|diego|adrian|alvaro|gonzalo|raul|ivan|angel|cesar|mario|ruben)\b",
+                r"\b(perez|garcia|martinez|lopez|rodriguez|gonzalez|gomez|fernandez|moreno|jimenez|ruiz|hernandez|diaz|morales|sanchez|romero|gutierrez|vargas|castillo|ortiz)\b",
+                r"\b([a-z]+)\s+(perez|garcia|martinez|lopez|rodriguez|gonzalez|gomez)\b",
+                r"(?:paciente|señor|señora|sr|sra|don|doña)\s+([a-z]+(?:\s+[a-z]+)*)",
             ]
             
+            found_names = set()
             for pattern in patient_patterns:
-                matches = re.findall(pattern, query)
+                matches = re.findall(pattern, normalized_query, re.IGNORECASE)
                 for match in matches:
                     if isinstance(match, tuple):
-                        match = match[0] if match else ""
-                    if match and len(match) > 2 and match not in entities["patients"]:
-                        entities["patients"].append(match)
+                        match = " ".join([m for m in match if m])
+                    if match and len(match) > 2:
+                        found_names.add(match.strip().title())
+            
+            # También buscar en query original para nombres capitalizados
+            cap_patterns = [
+                r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b",
+            ]
+            for pattern in cap_patterns:
+                matches = re.findall(pattern, original_query)
+                for match in matches:
+                    if len(match) > 2 and not match in ["Qué", "Cuál", "Cómo", "Dónde"]:
+                        found_names.add(match)
+            
+            entities["patients"] = list(found_names)
             
             # Extraer condiciones médicas
             for condition, synonyms in self._medical_terms.items():
                 for synonym in synonyms:
-                    if synonym.lower() in query.lower():
+                    if synonym.lower() in normalized_query:
                         if condition not in entities["conditions"]:
                             entities["conditions"].append(condition)
             
             # Extraer síntomas comunes
             symptom_keywords = [
                 "dolor", "fiebre", "tos", "mareos", "nausea", "vomito",
-                "diarrea", "estreñimiento", "fatiga", "cansancio", "debilidad"
+                "diarrea", "estreñimiento", "fatiga", "cansancio", "debilidad",
+                "dolor de cabeza", "presion alta", "presión alta"
             ]
             
             for symptom in symptom_keywords:
-                if symptom in query.lower():
+                if symptom in normalized_query:
                     if symptom not in entities["symptoms"]:
                         entities["symptoms"].append(symptom)
+            
+            # Extraer medicamentos comunes
+            medication_keywords = [
+                "aspirina", "paracetamol", "ibuprofeno", "losartan", 
+                "metformina", "enalapril", "simvastatina"
+            ]
+            
+            for med in medication_keywords:
+                if med in normalized_query:
+                    if med not in entities["medications"]:
+                        entities["medications"].append(med)
             
             # Extraer fechas/tiempo
             time_patterns = [
@@ -288,12 +315,17 @@ class ChatService:
             ]
             
             for pattern in time_patterns:
-                matches = re.findall(pattern, query.lower())
+                matches = re.findall(pattern, normalized_query)
                 for match in matches:
                     if isinstance(match, tuple):
                         match = ' '.join(match).strip()
                     if match and match not in entities["dates"]:
                         entities["dates"].append(match)
+                        
+            logger.debug("Entity extraction completed",
+                        patients=len(entities["patients"]),
+                        conditions=len(entities["conditions"]),
+                        symptoms=len(entities["symptoms"]))
             
         except Exception as e:
             logger.warning("Entity extraction failed", error=str(e))
@@ -450,13 +482,17 @@ class ChatService:
             patient_name = context.get("patient_name", "Paciente no identificado")
             date = context.get("date", "Fecha no disponible")
             content = context.get("content", "")
+            diagnosis = context.get("diagnosis", "No especificado")
+            symptoms = context.get("symptoms", "No especificados")
             
             context_part = f"""
 CONVERSACIÓN {i + 1}:
 Paciente: {patient_name}
 Fecha: {date}
-Relevancia: {context.get('final_score', 0):.2f}
-Contenido: {content[:500]}{'...' if len(content) > 500 else ''}
+Diagnóstico: {diagnosis}
+Síntomas: {symptoms}
+Relevancia: {context.get('similarity_score', context.get('final_score', 0)):.2f}
+Contenido completo: {content[:800]}{'...' if len(content) > 800 else ''}
 """
             context_parts.append(context_part)
         
@@ -484,9 +520,9 @@ Contenido: {content[:500]}{'...' if len(content) > 500 else ''}
                 ])
             )
             
-            # Generar respuesta usando OpenAI
-            response = await self.openai_service._call_openai_api([
-                {"role": "system", "content": "Eres un asistente médico especializado en consultar información de expedientes médicos."},
+            # Generar respuesta usando OpenAI (método específico para chat)
+            response = await self.openai_service._call_openai_chat_api([
+                {"role": "system", "content": "Eres un asistente médico especializado en consultar información de expedientes médicos. Proporciona respuestas claras y útiles basándote únicamente en la información médica disponible."},
                 {"role": "user", "content": full_prompt}
             ])
             
@@ -504,20 +540,25 @@ Contenido: {content[:500]}{'...' if len(content) > 500 else ''}
         
         if intent == ChatIntent.PATIENT_INFO:
             return """
-Basándote ÚNICAMENTE en la información médica proporcionada, responde la siguiente consulta sobre un paciente específico.
+Eres un asistente médico. Responde la consulta sobre el paciente basándote ÚNICAMENTE en la información médica proporcionada.
 
 INFORMACIÓN MÉDICA DISPONIBLE:
 {context}
 
-CONSULTA: {query}
+PREGUNTA DEL USUARIO: {query}
 
-INSTRUCCIONES CRÍTICAS:
-- Responde SOLO con información que esté explícitamente en el contexto
-- Si no hay información suficiente, indícalo claramente
-- Usa terminología médica apropiada pero accesible
-- NUNCA inventes información médica
-- Incluye fechas y detalles relevantes cuando estén disponibles
-- Sugiere consultar al médico para decisiones críticas
+INSTRUCCIONES:
+1. Analiza la información médica disponible
+2. Responde de manera clara y directa a la pregunta
+3. Incluye detalles relevantes como diagnóstico, síntomas y fecha si están disponibles
+4. Si la información es incompleta, menciona qué falta
+5. NUNCA inventes información que no esté en el contexto
+6. Usa un lenguaje médico profesional pero comprensible
+
+Formato de respuesta esperado:
+- Respuesta directa a la pregunta
+- Detalles médicos relevantes
+- Recomendación de consultar al médico si es necesario
 
 RESPUESTA:
 """

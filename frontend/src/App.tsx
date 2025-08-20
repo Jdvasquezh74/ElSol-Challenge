@@ -32,7 +32,8 @@ const queryClient = new QueryClient({
 
 type Tab = 'audio' | 'documents' | 'conversations';
 
-const App: React.FC = () => {
+// Internal component that uses hooks dependent on QueryClient
+const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('audio');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { isVisible: chatVisible, toggleVisibility: toggleChat } = useChat();
@@ -73,8 +74,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorBoundaryFallback}>
-      <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
           {/* Header */}
           <Header onToggleChat={toggleChat} chatVisible={chatVisible} />
 
@@ -111,24 +111,24 @@ const App: React.FC = () => {
                         className={clsx(
                           'w-full flex items-start space-x-3 px-4 py-3 text-left rounded-lg transition-colors duration-200',
                           isActive
-                            ? 'bg-medical-50 text-medical-700 border border-medical-200'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
                             : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         )}
                       >
                         <Icon className={clsx(
                           'w-6 h-6 mt-0.5 flex-shrink-0',
-                          isActive ? 'text-medical-600' : 'text-gray-400'
+                          isActive ? 'text-blue-600' : 'text-gray-400'
                         )} />
                         <div>
                           <div className={clsx(
                             'font-medium',
-                            isActive ? 'text-medical-900' : 'text-gray-900'
+                            isActive ? 'text-blue-900' : 'text-gray-900'
                           )}>
                             {tab.name}
                           </div>
                           <div className={clsx(
                             'text-sm mt-1',
-                            isActive ? 'text-medical-600' : 'text-gray-500'
+                            isActive ? 'text-blue-600' : 'text-gray-500'
                           )}>
                             {tab.description}
                           </div>
@@ -193,7 +193,7 @@ const App: React.FC = () => {
                         {activeTab !== 'audio' && (
                           <button
                             onClick={() => setActiveTab('audio')}
-                            className="btn-secondary flex items-center space-x-2"
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2"
                           >
                             <MicrophoneIcon className="w-4 h-4" />
                             <span>Subir Audio</span>
@@ -202,7 +202,7 @@ const App: React.FC = () => {
                         {activeTab !== 'documents' && (
                           <button
                             onClick={() => setActiveTab('documents')}
-                            className="btn-secondary flex items-center space-x-2"
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2"
                           >
                             <DocumentIcon className="w-4 h-4" />
                             <span>Subir Documento</span>
@@ -250,8 +250,16 @@ const App: React.FC = () => {
             }}
           />
         </div>
-      </QueryClientProvider>
     </ErrorBoundary>
+  );
+};
+
+// Main App component that provides QueryClient context
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
   );
 };
 

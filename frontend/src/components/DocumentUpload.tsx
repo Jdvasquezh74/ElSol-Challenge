@@ -107,7 +107,7 @@ export const DocumentUpload: React.FC = () => {
             </label>
             <input
               type="text"
-              className="input-field"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="ej: Juan Pérez"
               value={uploadMetadata.patient_name}
               onChange={(e) => setUploadMetadata(prev => ({ ...prev, patient_name: e.target.value }))}
@@ -118,7 +118,7 @@ export const DocumentUpload: React.FC = () => {
               Tipo de Documento
             </label>
             <select
-              className="input-field"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={uploadMetadata.document_type}
               onChange={(e) => setUploadMetadata(prev => ({ ...prev, document_type: e.target.value }))}
             >
@@ -138,7 +138,7 @@ export const DocumentUpload: React.FC = () => {
             </label>
             <input
               type="text"
-              className="input-field"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="ej: Resultados de glucosa"
               value={uploadMetadata.description}
               onChange={(e) => setUploadMetadata(prev => ({ ...prev, description: e.target.value }))}
@@ -151,8 +151,8 @@ export const DocumentUpload: React.FC = () => {
       <div
         {...getRootProps()}
         className={clsx(
-          'upload-area cursor-pointer transition-all duration-200',
-          (isDragActive || dragActive) && 'dragover',
+          'border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors duration-200 cursor-pointer transition-all duration-200',
+          (isDragActive || dragActive) && 'border-blue-500 bg-blue-50',
           hasUploads && 'border-solid border-gray-400'
         )}
       >
@@ -160,11 +160,11 @@ export const DocumentUpload: React.FC = () => {
         <div className="flex flex-col items-center space-y-4">
           <div className={clsx(
             'w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200',
-            (isDragActive || dragActive) ? 'bg-medical-100' : 'bg-gray-100'
+            (isDragActive || dragActive) ? 'bg-blue-100' : 'bg-gray-100'
           )}>
             <DocumentIcon className={clsx(
               'w-8 h-8 transition-colors duration-200',
-              (isDragActive || dragActive) ? 'text-medical-600' : 'text-gray-500'
+              (isDragActive || dragActive) ? 'text-blue-600' : 'text-gray-500'
             )} />
           </div>
           
@@ -181,7 +181,7 @@ export const DocumentUpload: React.FC = () => {
             </div>
           </div>
 
-          <button className="btn-primary">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
             Seleccionar Documentos
           </button>
         </div>
@@ -189,7 +189,7 @@ export const DocumentUpload: React.FC = () => {
 
       {/* Upload Progress */}
       {hasUploads && (
-        <div className="card">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
               Documentos ({uploadProgress.length})
@@ -198,14 +198,14 @@ export const DocumentUpload: React.FC = () => {
               {hasCompleted && (
                 <button
                   onClick={clearCompleted}
-                  className="btn-secondary text-sm"
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
                 >
                   Limpiar Completados
                 </button>
               )}
               <button
                 onClick={clearAll}
-                className="btn-secondary text-sm"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
               >
                 Limpiar Todo
               </button>
@@ -248,7 +248,7 @@ export const DocumentUpload: React.FC = () => {
                         'h-1.5 rounded-full transition-all duration-300',
                         progress.status === 'completed' ? 'bg-green-500' :
                         progress.status === 'error' ? 'bg-red-500' :
-                        'bg-medical-500'
+                        'bg-blue-500'
                       )}
                       style={{ width: `${progress.progress}%` }}
                     />
@@ -280,7 +280,7 @@ export const DocumentUpload: React.FC = () => {
                             <span className="text-xs font-medium text-gray-700">
                               Texto extraído (Confianza: {Math.round(progress.result.ocr_result.confidence * 100)}%)
                             </span>
-                            <button className="text-xs text-medical-600 hover:text-medical-700 flex items-center space-x-1">
+                            <button className="text-xs text-blue-600 hover:text-blue-700 flex items-center space-x-1">
                               <EyeIcon className="w-3 h-3" />
                               <span>Ver texto</span>
                             </button>
@@ -341,6 +341,21 @@ export const DocumentUpload: React.FC = () => {
                                   </span>
                                 )}
                               </div>
+                            </div>
+                          )}
+
+                          {/* Action Button */}
+                          {progress.result && 'document_id' in progress.result && (
+                            <div className="mt-2 flex justify-end">
+                              <button 
+                                onClick={() => {
+                                  // Navigate to document detail - for now just log
+                                  console.log('Navigate to document:', progress.result);
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                Ver documento completo →
+                              </button>
                             </div>
                           )}
                         </div>

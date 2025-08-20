@@ -89,8 +89,8 @@ export const AudioUpload: React.FC = () => {
       <div
         {...getRootProps()}
         className={clsx(
-          'upload-area cursor-pointer transition-all duration-200',
-          (isDragActive || dragActive) && 'dragover',
+          'border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors duration-200 cursor-pointer transition-all duration-200',
+          (isDragActive || dragActive) && 'border-blue-500 bg-blue-50',
           hasUploads && 'border-solid border-gray-400'
         )}
       >
@@ -98,11 +98,11 @@ export const AudioUpload: React.FC = () => {
         <div className="flex flex-col items-center space-y-4">
           <div className={clsx(
             'w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200',
-            (isDragActive || dragActive) ? 'bg-medical-100' : 'bg-gray-100'
+            (isDragActive || dragActive) ? 'bg-blue-100' : 'bg-gray-100'
           )}>
             <MicrophoneIcon className={clsx(
               'w-8 h-8 transition-colors duration-200',
-              (isDragActive || dragActive) ? 'text-medical-600' : 'text-gray-500'
+              (isDragActive || dragActive) ? 'text-blue-600' : 'text-gray-500'
             )} />
           </div>
           
@@ -119,7 +119,7 @@ export const AudioUpload: React.FC = () => {
             </div>
           </div>
 
-          <button className="btn-primary">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
             Seleccionar Archivos
           </button>
         </div>
@@ -127,7 +127,7 @@ export const AudioUpload: React.FC = () => {
 
       {/* Upload Progress */}
       {hasUploads && (
-        <div className="card">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
               Archivos de Audio ({uploadProgress.length})
@@ -136,14 +136,14 @@ export const AudioUpload: React.FC = () => {
               {hasCompleted && (
                 <button
                   onClick={clearCompleted}
-                  className="btn-secondary text-sm"
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
                 >
                   Limpiar Completados
                 </button>
               )}
               <button
                 onClick={clearAll}
-                className="btn-secondary text-sm"
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
               >
                 Limpiar Todo
               </button>
@@ -186,7 +186,7 @@ export const AudioUpload: React.FC = () => {
                         'h-1.5 rounded-full transition-all duration-300',
                         progress.status === 'completed' ? 'bg-green-500' :
                         progress.status === 'error' ? 'bg-red-500' :
-                        'bg-medical-500'
+                        'bg-blue-500'
                       )}
                       style={{ width: `${progress.progress}%` }}
                     />
@@ -211,42 +211,70 @@ export const AudioUpload: React.FC = () => {
                         Transcripción completada
                       </div>
                       
-                      {/* Speaker Statistics - Only for TranscriptionResponse */}
-                      {'diarization_result' in progress.result && progress.result.diarization_result && (
-                        <div className="grid grid-cols-3 gap-2 text-xs">
+                      {/* Processing Information */}
+                      {'transcription' in progress.result && progress.result.transcription && (
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="text-center">
                             <div className="font-medium text-blue-600">
-                              {Math.round(progress.result.diarization_result.speaker_stats.promotor_time)}s
+                              {progress.result.transcription.confidence_score ? 
+                                `${Math.round(progress.result.transcription.confidence_score * 100)}%` : 
+                                'N/A'
+                              }
                             </div>
-                            <div className="text-gray-500">Promotor</div>
+                            <div className="text-gray-500">Confianza</div>
                           </div>
                           <div className="text-center">
                             <div className="font-medium text-green-600">
-                              {Math.round(progress.result.diarization_result.speaker_stats.paciente_time)}s
+                              {progress.result.transcription.audio_duration_seconds || 'N/A'}s
                             </div>
-                            <div className="text-gray-500">Paciente</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-medium text-gray-600">
-                              {progress.result.diarization_result.speaker_stats.speaker_changes}
-                            </div>
-                            <div className="text-gray-500">Cambios</div>
+                            <div className="text-gray-500">Duración</div>
                           </div>
                         </div>
                       )}
 
                       {/* Structured Data Preview - Only for TranscriptionResponse */}
-                      {'structured_data' in progress.result && progress.result.structured_data && (
+                      {'transcription' in progress.result && progress.result.transcription?.structured_data && (
                         <div className="mt-2 text-xs">
                           <div className="font-medium text-gray-700 mb-1">Información extraída:</div>
                           <div className="space-y-1">
-                            {progress.result.structured_data.nombre && (
-                              <div><span className="text-gray-500">Paciente:</span> {progress.result.structured_data.nombre}</div>
+                            {progress.result.transcription.structured_data.nombre && (
+                              <div><span className="text-gray-500">Paciente:</span> {progress.result.transcription.structured_data.nombre}</div>
                             )}
-                            {progress.result.structured_data.diagnóstico && (
-                              <div><span className="text-gray-500">Diagnóstico:</span> {progress.result.structured_data.diagnóstico}</div>
+                            {progress.result.transcription.structured_data.diagnostico && (
+                              <div><span className="text-gray-500">Diagnóstico:</span> {progress.result.transcription.structured_data.diagnostico}</div>
+                            )}
+                            {progress.result.transcription.structured_data.edad && (
+                              <div><span className="text-gray-500">Edad:</span> {progress.result.transcription.structured_data.edad} años</div>
                             )}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Transcription Preview */}
+                      {'transcription' in progress.result && progress.result.transcription?.raw_text && (
+                        <div className="mt-2 text-xs">
+                          <div className="font-medium text-gray-700 mb-1">Transcripción:</div>
+                          <div className="text-gray-600 bg-white p-2 rounded border max-h-20 overflow-y-auto">
+                            {progress.result.transcription.raw_text.substring(0, 150)}
+                            {progress.result.transcription.raw_text.length > 150 && '...'}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Button */}
+                      {progress.result && 'id' in progress.result && (
+                        <div className="mt-2 flex justify-end">
+                          <button 
+                            onClick={() => {
+                              // Navigate to conversation detail
+                              if (progress.result && 'id' in progress.result) {
+                                window.location.href = `#conversation-${progress.result.id}`;
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Ver detalles completos →
+                          </button>
                         </div>
                       )}
                     </div>

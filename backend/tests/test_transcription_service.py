@@ -11,7 +11,8 @@ import tempfile
 import os
 from pathlib import Path
 
-from app.services.whisper_service import get_whisper_service, WhisperService, WhisperServiceError
+#from app.services.whisper_service import get_whisper_service, WhisperService, WhisperServiceError
+from app.services.whisper_service import get_whisper_service, LocalWhisperService, WhisperTranscriptionError
 from app.core.config import get_settings
 
 
@@ -23,32 +24,37 @@ class TestWhisperService:
         self.whisper_service = get_whisper_service()
         self.settings = get_settings()
     
-    def test_whisper_service_singleton(self):
-        """Test que el servicio sea singleton."""
+    def test_whisper_service_creation(self):
+        """Test que el servicio se puede crear correctamente."""
         service1 = get_whisper_service()
         service2 = get_whisper_service()
-        assert service1 is service2
+        # No es singleton, cada llamada crea una nueva instancia
+        assert isinstance(service1, LocalWhisperService)
+        assert isinstance(service2, LocalWhisperService)
     
     def test_validate_audio_file_valid_formats(self):
         """Test validación de formatos de audio válidos."""
-        # Crear archivos temporales para testing
+        # Crear archivo WAV válido con header correcto
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
             wav_file = f.name
-            f.write(b"fake audio data")
+            # Header WAV válido: RIFF + tamaño + WAVE
+            f.write(b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00')
         
+        # Crear archivo MP3 válido con header ID3
         with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as f:
             mp3_file = f.name
-            f.write(b"fake audio data")
+            # Header MP3 válido: ID3 tag
+            f.write(b'ID3' + b'\x03\x00\x00\x00' + b'extra_content')
         
         try:
             # Test archivos válidos
             is_valid, message = self.whisper_service.validate_audio_file(wav_file)
             assert is_valid is True
-            assert "válido" in message.lower()
+            assert message is None
             
             is_valid, message = self.whisper_service.validate_audio_file(mp3_file)
             assert is_valid is True
-            assert "válido" in message.lower()
+            assert message is None
         
         finally:
             # Cleanup
@@ -73,7 +79,7 @@ class TestWhisperService:
         """Test validación de archivo que no existe."""
         is_valid, message = self.whisper_service.validate_audio_file("nonexistent.wav")
         assert is_valid is False
-        assert "no encontrado" in message.lower()
+        assert "no existe" in message.lower()
     
     def test_validate_audio_file_empty(self):
         """Test validación de archivo vacío."""
@@ -89,46 +95,48 @@ class TestWhisperService:
         finally:
             os.unlink(empty_file)
     
-    @patch('app.services.whisper_service.openai.Audio.transcribe')
+    @patch.object(LocalWhisperService, '_perform_local_transcription')
     @pytest.mark.asyncio
-    async def test_transcribe_audio_success(self, mock_transcribe):
+    async def test_transcribe_audio_success(self, mock_transcription):
         """Test transcripción exitosa de audio."""
-        # Mock de respuesta de Whisper
-        mock_response = Mock()
-        mock_response.text = "Buenos días, ¿cómo se siente hoy? Me duele la cabeza."
-        mock_transcribe.return_value = mock_response
+        # Mock de respuesta local de Whisper
+        mock_transcription.return_value = {
+            "text": "Buenos días, ¿cómo se siente hoy? Me duele la cabeza.",
+            "language": "es",
+            "segments": [{"start": 0, "end": 5, "avg_logprob": -0.1}]
+        }
         
-        # Crear archivo de audio temporal
+        # Crear archivo WAV válido
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
             audio_file = f.name
-            f.write(b"fake audio data for testing")
+            f.write(b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00')
         
         try:
-            result = await self.whisper_service.transcribe_audio(audio_file, "test.wav")
+            result = await self.whisper_service.transcribe_audio(audio_file)
             
             assert result is not None
-            assert result.text == "Buenos días, ¿cómo se siente hoy? Me duele la cabeza."
-            assert result.language == "spanish"
-            assert result.processing_time_seconds > 0
-            assert result.confidence_score > 0
+            assert "Buenos días" in result["text"]
+            assert result["language"] == "es"
+            assert "processing_time_seconds" in result
+            assert "confidence_score" in result
             
         finally:
             os.unlink(audio_file)
     
-    @patch('app.services.whisper_service.openai.Audio.transcribe')
+    @patch.object(LocalWhisperService, '_perform_local_transcription')
     @pytest.mark.asyncio
-    async def test_transcribe_audio_api_error(self, mock_transcribe):
-        """Test manejo de error de API de Whisper."""
-        # Mock error de API
-        mock_transcribe.side_effect = Exception("API Error")
+    async def test_transcribe_audio_api_error(self, mock_transcription):
+        """Test manejo de error de transcripción local."""
+        # Mock error de transcripción
+        mock_transcription.side_effect = Exception("Transcription Error")
         
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
             audio_file = f.name
-            f.write(b"fake audio data")
+            f.write(b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00')
         
         try:
-            with pytest.raises(WhisperServiceError):
-                await self.whisper_service.transcribe_audio(audio_file, "test.wav")
+            with pytest.raises(WhisperTranscriptionError):
+                await self.whisper_service.transcribe_audio(audio_file)
         
         finally:
             os.unlink(audio_file)
@@ -136,35 +144,38 @@ class TestWhisperService:
     @pytest.mark.asyncio
     async def test_transcribe_audio_invalid_file(self):
         """Test transcripción con archivo inválido."""
-        with pytest.raises(WhisperServiceError):
-            await self.whisper_service.transcribe_audio("nonexistent.wav", "test.wav")
+        with pytest.raises(WhisperTranscriptionError):
+            await self.whisper_service.transcribe_audio("nonexistent.wav")
     
-    def test_estimate_audio_duration(self):
-        """Test estimación de duración de audio."""
-        # Este test sería más completo con archivos de audio reales
-        # Por ahora test el método básico
-        duration = self.whisper_service._estimate_audio_duration(1024000)  # 1MB
-        assert duration > 0
-        assert isinstance(duration, (int, float))
+    def test_get_model_info(self):
+        """Test obtención de información del modelo."""
+        info = self.whisper_service.get_model_info()
+        assert "model_name" in info
+        assert "device" in info
+        assert "is_loaded" in info
+        assert info["model_name"] == self.settings.WHISPER_MODEL
+        assert isinstance(info["cuda_available"], bool)
     
     @pytest.mark.asyncio
     async def test_process_long_audio_file(self):
         """Test procesamiento de archivo de audio largo."""
-        # Crear archivo "grande" simulado
+        # Crear archivo "grande" simulado con header válido
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
             large_audio_file = f.name
-            # Simular archivo de 20MB
-            f.write(b"fake audio data" * 1400000)  # ~20MB
+            # Header WAV válido + contenido grande
+            header = b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00'
+            f.write(header + b"fake audio data" * 2000000)  # ~30MB
         
         try:
             # Debería detectar que es un archivo grande
             file_size = os.path.getsize(large_audio_file)
             assert file_size > 10 * 1024 * 1024  # >10MB
             
-            # Validación debería pasar pero advertir sobre tiempo
+            # Validación debería fallar por exceder tamaño máximo
             is_valid, message = self.whisper_service.validate_audio_file(large_audio_file)
-            # El archivo es válido pero grande
-            assert is_valid is True
+            # El archivo excede el límite máximo
+            assert is_valid is False
+            assert "excede el límite máximo" in message
         
         finally:
             os.unlink(large_audio_file)
@@ -173,70 +184,63 @@ class TestWhisperService:
 class TestTranscriptionIntegration:
     """Tests de integración para el flujo completo de transcripción."""
     
+    @patch.object(LocalWhisperService, '_perform_local_transcription')
     @pytest.mark.asyncio
-    async def test_full_transcription_workflow(self):
+    async def test_full_transcription_workflow(self, mock_transcription):
         """Test del flujo completo de transcripción (mock)."""
-        with patch('app.services.whisper_service.openai.Audio.transcribe') as mock_transcribe:
-            # Mock respuesta exitosa
-            mock_response = Mock()
-            mock_response.text = "Prueba de transcripción médica exitosa."
-            mock_transcribe.return_value = mock_response
+        # Mock respuesta exitosa
+        mock_transcription.return_value = {
+            "text": "Prueba de transcripción médica exitosa.",
+            "language": "es",
+            "segments": [{"start": 0, "end": 3, "avg_logprob": -0.1}]
+        }
+        
+        whisper_service = get_whisper_service()
+        
+        # Crear archivo WAV válido
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+            test_file = f.name
+            f.write(b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00')
+        
+        try:
+            # Validar archivo
+            is_valid, message = whisper_service.validate_audio_file(test_file)
+            assert is_valid is True
+            assert message is None
             
-            whisper_service = get_whisper_service()
+            # Transcribir
+            result = await whisper_service.transcribe_audio(test_file)
+            assert result is not None
+            assert "transcripción médica" in result["text"]
             
-            # Crear archivo temporal
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                test_file = f.name
-                f.write(b"fake audio content")
-            
-            try:
-                # Validar archivo
-                is_valid, message = whisper_service.validate_audio_file(test_file)
-                assert is_valid is True
-                
-                # Transcribir
-                result = await whisper_service.transcribe_audio(test_file, "test.wav")
-                assert result is not None
-                assert "transcripción médica" in result.text
-                
-            finally:
-                os.unlink(test_file)
+        finally:
+            os.unlink(test_file)
     
     def test_audio_format_detection(self):
         """Test detección de formatos de audio."""
         whisper_service = get_whisper_service()
         
-        # Test diferentes extensiones
-        test_files = [
-            ("audio.wav", True),
-            ("audio.mp3", True), 
-            ("audio.WAV", True),  # Case insensitive
-            ("audio.MP3", True),
-            ("document.pdf", False),
-            ("image.jpg", False),
-            ("audio", False),  # Sin extensión
-            ("audio.txt", False)
+        test_cases = [
+            # (filename, content, expected_valid)
+            ("audio.wav", b'RIFF\x24\x00\x00\x00WAVE', True),
+            ("audio.mp3", b'ID3\x03\x00\x00\x00', True),
+            ("audio.mp3", b'\xff\xfb\x90\x00', True),  # MP3 frame header
+            ("audio.WAV", b'RIFF\x24\x00\x00\x00WAVE', True),  # Case insensitive
+            ("document.pdf", b'%PDF-1.4', False),
+            ("image.jpg", b'\xff\xd8\xff\xe0', False),
+            ("audio.txt", b'plain text', False),
         ]
         
-        for filename, expected_valid in test_files:
-            # Crear archivo temporal con la extensión correcta
-            with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix or '.tmp', delete=False) as f:
+        for filename, content, expected_valid in test_cases:
+            with tempfile.NamedTemporaryFile(suffix=Path(filename).suffix, delete=False) as f:
+                f.write(content)
                 temp_file = f.name
-                f.write(b"test content")
             
             try:
-                # Renombrar para tener el nombre correcto
-                final_file = str(Path(temp_file).parent / filename)
-                os.rename(temp_file, final_file)
-                
-                is_valid, _ = whisper_service.validate_audio_file(final_file)
-                assert is_valid == expected_valid, f"Failed for {filename}"
-                
+                is_valid, _ = whisper_service.validate_audio_file(temp_file)
+                assert is_valid == expected_valid, f"Failed for {filename} with content {content[:10]}"
             finally:
-                try:
-                    os.unlink(final_file)
-                except FileNotFoundError:
-                    pass
+                os.unlink(temp_file)
 
 
 # Fixture para setup de tests
@@ -244,6 +248,8 @@ class TestTranscriptionIntegration:
 def temp_audio_file():
     """Fixture que crea un archivo de audio temporal para tests."""
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+        # Crear archivo WAV válido con header
+        f.write(b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00')
         f.write(b"fake audio data for testing purposes")
         temp_file = f.name
     
@@ -257,12 +263,14 @@ def temp_audio_file():
 
 
 @pytest.fixture
-def mock_openai_success():
-    """Fixture que mockea una respuesta exitosa de OpenAI."""
-    with patch('app.services.whisper_service.openai.Audio.transcribe') as mock:
-        response = Mock()
-        response.text = "Esta es una transcripción de prueba exitosa."
-        mock.return_value = response
+def mock_whisper_success():
+    """Fixture que mockea una respuesta exitosa de Whisper local."""
+    with patch.object(LocalWhisperService, '_perform_local_transcription') as mock:
+        mock.return_value = {
+            "text": "Esta es una transcripción de prueba exitosa.",
+            "language": "es",
+            "segments": [{"start": 0, "end": 3, "avg_logprob": -0.1}]
+        }
         yield mock
 
 
@@ -270,7 +278,7 @@ class TestTranscriptionPerformance:
     """Tests de performance para transcripción."""
     
     @pytest.mark.asyncio
-    async def test_transcription_timeout_handling(self, temp_audio_file, mock_openai_success):
+    async def test_transcription_timeout_handling(self, temp_audio_file, mock_whisper_success):
         """Test manejo de timeouts en transcripción."""
         import asyncio
         
@@ -278,22 +286,25 @@ class TestTranscriptionPerformance:
         
         # Test transcripción normal (debería completarse rápido)
         start_time = asyncio.get_event_loop().time()
-        result = await whisper_service.transcribe_audio(temp_audio_file, "test.wav")
+        result = await whisper_service.transcribe_audio(temp_audio_file)
         end_time = asyncio.get_event_loop().time()
         
         processing_time = end_time - start_time
         assert processing_time < 10  # Debería completarse en <10 segundos (con mock)
         assert result is not None
+        assert "text" in result
     
     def test_concurrent_validation(self):
         """Test validación concurrente de múltiples archivos."""
         whisper_service = get_whisper_service()
         
-        # Crear múltiples archivos temporales
+        # Crear múltiples archivos temporales con headers válidos
         temp_files = []
         for i in range(5):
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                f.write(f"audio content {i}".encode())
+                # Header WAV válido + contenido único
+                header = b'RIFF' + b'\x24\x00\x00\x00' + b'WAVE' + b'fmt ' + b'\x10\x00\x00\x00'
+                f.write(header + f"audio content {i}".encode())
                 temp_files.append(f.name)
         
         try:
